@@ -1,4 +1,14 @@
 -- https://github.com/JstHope/PalCaptureCounter (discord: jsthop3)
+local PAL_DATA = require("pal_data")
+
+function findObjectByPalName(fileName)
+    for i, obj in ipairs(PAL_DATA) do
+        if obj.FileName == fileName then
+            return obj
+        end
+    end
+    return nil -- return nil if no object with the given PalName is found
+end
 
 CAPTURE_LIST = {}
 function update_capture_list()
@@ -18,14 +28,20 @@ function register_Gauge_Handle()
     RegisterHook("/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:BindFromHandle", function(self, handler)
         local CharacterID = handler:get():TryGetIndividualParameter().SaveParameter.CharacterID:ToString()
         local eg = self.a.WBP_EnemyGauge
-        local org_name = eg.Text_Name:GetText():ToString()
+        local PalObject = findObjectByPalName(CharacterID)
+        -- If PalObject is nil, return from the function
+        if PalObject == nil then
+            return
+        end
+        
+        local PalName = PalObject.PalName
 
         if eg:IsValid() then
             if eg.Text_Name:GetFullName() ~= nil then
                 if CAPTURE_LIST[CharacterID] ~= nil then
-                    eg.Text_Name:SetText_GDKInternal(1,(org_name:match("([^%[%]]+) %[") or org_name) .. string.format(" [%s/10] ", CAPTURE_LIST[CharacterID]))
+                    eg.Text_Name:SetText_GDKInternal(1,PalName .. string.format(" [%s/10] ", CAPTURE_LIST[CharacterID]))
                 else
-                    eg.Text_Name:SetText_GDKInternal(1,(org_name:match("([^%[%]]+) %[") or org_name) .. " [0/10] ")
+                    eg.Text_Name:SetText_GDKInternal(1,PalName .. " [0/10] ")
                 end
             end
         end
@@ -44,4 +60,3 @@ RegisterHook("/Script/Engine.PlayerController:ClientRestart", function(Context, 
         update_capture_list()
     end)
 end)
-
