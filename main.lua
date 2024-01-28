@@ -14,7 +14,6 @@ CAPTURE_LIST = {}
 function update_capture_list()
     CAPTURE_LIST = {}
     local records = FindAllOf("BP_PalPlayerRecordData_C")
-    print("[PalCaptureCounter] records: " .. tostring(#records))
     if records then 
         for Index, record in pairs(records) do
             local items = record.PalCaptureCount.Items
@@ -28,7 +27,6 @@ end
 function register_Gauge_Handle()
     RegisterHook("/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:BindFromHandle", function(self, handler)
         local CharacterID = handler:get():TryGetIndividualParameter().SaveParameter.CharacterID:ToString()
-        print("[PalCaptureCounter] CharacterID: " .. CharacterID)
         local eg = self.a.WBP_EnemyGauge
         local PalObject = findObjectByPalName(CharacterID)
         -- If PalObject is nil, return from the function
