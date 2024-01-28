@@ -2,6 +2,7 @@
 
 CAPTURE_LIST = {}
 function update_capture_list()
+    CAPTURE_LIST = {
     local records = FindAllOf("BP_PalPlayerRecordData_C")
     if records then 
         for Index, record in pairs(records) do
