@@ -1,3 +1,5 @@
+![headerimg](header.png)
+
 # Description
 A visible pal capture counter mod which shows next to the pals' nickname how many times it has already been captured.
 To be able to see how many times the pal has been captured to easily know if the total exp bonus (10/10) has been reached (without going through the paldex)
@@ -76,3 +78,7 @@ You can find the source code on my github
 - Update the names of the pals loaded after each capture
 - Show pals' real names instead of their CharacterIDs
 - Fix the problem of broken characters at the end of names
+
+# screen
+![Screenshot](screen1.png)
+![Screenshot](screen2.png)
