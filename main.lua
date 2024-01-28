@@ -14,7 +14,6 @@ CAPTURE_LIST = {}
 function update_capture_list()
     CAPTURE_LIST = {}
     local records = FindAllOf("BP_PalPlayerRecordData_C")
-    print("[PalCaptureCounter] records: " .. tostring(#records))
     if records then 
         for Index, record in pairs(records) do
             local items = record.PalCaptureCount.Items
