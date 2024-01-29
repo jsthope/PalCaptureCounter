@@ -55,8 +55,6 @@ function register_Gauge_Handle()
         ExecuteAsync(function()
             add_count_to_pal(handler_,WBP_PalNPCHPGauge_C)
         end)
-
-
     end)
 end
 
