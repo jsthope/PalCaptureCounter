@@ -24,38 +24,50 @@ function update_capture_list()
         end
     end
 end
-function register_Gauge_Handle()
-    RegisterHook("/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:BindFromHandle", function(self, handler)
-        local CharacterID = string.gsub(handler:get():TryGetIndividualParameter().SaveParameter.CharacterID:ToString(), "^BOSS_", "")
-        local eg = self.a.WBP_EnemyGauge
-        local PalObject = findObjectByPalName(CharacterID)
-        -- If PalObject is nil, return from the function
-        if PalObject == nil then
-            return
-        end
-        
-        local PalName = PalObject.PalName
 
-        if eg:IsValid() then
-            if eg.Text_Name:GetFullName() ~= nil then
-                if CAPTURE_LIST[CharacterID] ~= nil then
-                    eg.Text_Name:SetText_GDKInternal(1,PalName .. string.format(" [%s/10] ", CAPTURE_LIST[CharacterID]))
-                else
-                    eg.Text_Name:SetText_GDKInternal(1,PalName .. " [0/10] ")
-                end
+function add_count_to_pal(handler,WBP_PalNPCHPGauge_C)
+    local CharacterID = string.gsub(handler:TryGetIndividualParameter().SaveParameter.CharacterID:ToString(), "^BOSS_", "")
+    local eg = WBP_PalNPCHPGauge_C.WBP_EnemyGauge
+    local PalObject = findObjectByPalName(CharacterID)
+    -- If PalObject is nil, return from the function
+    if PalObject == nil then
+        return
+    end
+    
+    local PalName = PalObject.PalName
+
+    if eg:IsValid() then
+        if eg.Text_Name:GetFullName() ~= nil then
+            if CAPTURE_LIST[CharacterID] ~= nil then
+                eg.Text_Name:SetText_GDKInternal(1,PalName .. string.format(" [%s/10] ", CAPTURE_LIST[CharacterID]))
+            else
+                eg.Text_Name:SetText_GDKInternal(1,PalName .. " [0/10] ")
             end
         end
+    end
+end
+
+function register_Gauge_Handle()
+    RegisterHook("/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:BindFromHandle", function(self, handler)
+        local handler_ = handler.a
+        local WBP_PalNPCHPGauge_C = self.WBP_PalNPCHPGauge_C
+
+        ExecuteAsync(function()
+            add_count_to_pal(handler_,WBP_PalNPCHPGauge_C)
+        end)
+
+
     end)
 end
 
-RegisterHook("/Script/Pal.PalCharacterParameterComponent:SetIsCapturedProcessing", function(self)
+RegisterHook("/Script/Pal.PalCharacterParameterComponent:SetIsCapturedProcessing", function()
     update_capture_list()
 end)
 
-RegisterHook("/Script/Engine.PlayerController:ClientRestart", function(Context, NewPawn)
+RegisterHook("/Script/Engine.PlayerController:ClientRestart", function()
     print("[PalCaptureCounter] INIT......")
     register_Gauge_Handle()
-    RegisterHook("/Game/Pal/Blueprint/System/BP_PalGameInstance.BP_PalGameInstance_C:OnCompleteSetup", function(Context)
+    RegisterHook("/Game/Pal/Blueprint/System/BP_PalGameInstance.BP_PalGameInstance_C:OnCompleteSetup", function()
         print("[PalCaptureCounter] First update CAPTURE_LIST......")
         update_capture_list()
     end)
