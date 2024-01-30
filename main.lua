@@ -1,80 +1,172 @@
 -- https://github.com/JstHope/PalCaptureCounter (discord: jsthop3)
-local PAL_DATA = require("pal_data")
 local config = require("config")
 
-function findObjectByPalName(fileName)
-    for i, obj in ipairs(PAL_DATA) do
-        if string.lower(obj.FileName) == fileName then
-            return obj
-        end
-    end
-    return nil -- return nil if no object with the given PalName is found
-end
+local pal_utility = nil
+local capture_count = {}
+local gauge_list = {}
+local gauge_list_mutex = false
 
-CAPTURE_LIST = {}
-function update_capture_list()
-    CAPTURE_LIST = {}
-    local records = FindAllOf("BP_PalPlayerRecordData_C")
-    if records then
-        for Index, record in pairs(records) do
-            local items = record.PalCaptureCount.Items
-            items:ForEach(function(index, elem_wrapper)
-                local palrec = elem_wrapper:get()
-                CAPTURE_LIST[string.lower(palrec.Key:ToString())] = tostring(palrec.Value)
-            end)
-        end
-    end
-end
-
-function add_count_to_pal(handler,WBP_PalNPCHPGauge_C)
-    local CharacterID = string.lower(string.gsub(handler:TryGetIndividualParameter().SaveParameter.CharacterID:ToString(), "^BOSS_", ""))
-    local eg = WBP_PalNPCHPGauge_C.WBP_EnemyGauge
-    local PalObject = findObjectByPalName(CharacterID)
-    -- If PalObject is nil, return from the function
-    if PalObject == nil then
-        print("[PalCaptureCounter] no PalObject found for " .. CharacterID)
+function UpdatePalCaptureCount()
+    local raw_capture_count = pal_utility:GetLocalRecordData(FindFirstOf("PalPlayerCharacter")).PalCaptureCount.Items
+    if not raw_capture_count:IsValid() then
+        ExecuteWithDelay(1000, UpdatePalCaptureCount)
         return
     end
 
-    local PalName = PalObject.PalName
-    -- print the length of CAPTURE_LIST
-    local CaughtCounter = tonumber(CAPTURE_LIST[CharacterID]) or 0
-    if eg:IsValid() then
-        if eg.Text_Name:GetFullName() ~= nil then
-            -- If always_show_count is true, always show the counter
-            if config.always_show_count then
-                eg.Text_Name:SetText_GDKInternal(1, PalName .. string.format(" [%s/10] ", CaughtCounter))
-            else
-                -- else only show the counter if the number of captures is less than 10
-                if CaughtCounter < 10 then
-                    eg.Text_Name:SetText_GDKInternal(1, PalName .. string.format(" [%s/10] ", CaughtCounter))
+    raw_capture_count:ForEach(function(index, elem)
+        local lua_elem = elem:get()
+        capture_count[lua_elem.Key:ToString()] = lua_elem.Value
+    end)
+
+    -- print("[UpdatePalCaptureCount] updated.")
+end
+
+function LoadPalUtility()
+    pal_utility = StaticFindObject("/Script/Pal.Default__PalUtility")
+    if not pal_utility:IsValid() then
+        ExecuteWithDelay(1000, LoadPalUtility)
+        return
+    end
+
+    -- print("[PalUtility] loaded.")
+end
+
+function UpdateGauges()
+    if gauge_list_mutex then
+        ExecuteWithDelay(200, UpdateGauges)
+        return
+    end
+
+    for key in pairs(gauge_list) do
+        local enemyGauge = gauge_list[key].gauge
+        local characterIdStr = gauge_list[key].char_id
+
+        if enemyGauge ~= nil and characterIdStr ~= nil then
+            if capture_count[characterIdStr] ~= nil then
+                if config.always_show_count or capture_count[characterIdStr] < 10 then
+                    enemyGauge.Text_WorkName:SetText_GDKInternal(1,
+                        string.format("(%s/10)\n", tostring(capture_count[characterIdStr])))
                 end
+            else
+                enemyGauge.Text_WorkName:SetText_GDKInternal(1, string.format("(0/10)\n"))
             end
         end
     end
 end
 
-function register_Gauge_Handle()
-    RegisterHook("/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:BindFromHandle",
-        function(self, handler)
-            local handler_ = handler.a
-            local WBP_PalNPCHPGauge_C = self.WBP_PalNPCHPGauge_C
+function DetourOnCapturedPal(self, CaptureInfo)
+    ExecuteAsync(function()
+        UpdatePalCaptureCount()
+        UpdateGauges()
+    end)
 
-            ExecuteAsync(function()
-                add_count_to_pal(handler_, WBP_PalNPCHPGauge_C)
-            end)
-        end)
+    -- print(string.format("[OnCapturedPal] %s", CaptureInfo:get().CharacterID:ToString()))
 end
 
-RegisterHook("/Script/Pal.PalCharacterParameterComponent:SetIsCapturedProcessing", function()
-    update_capture_list()
-end)
+function DetourBindFromHandle(self, targetHandle)
+    local widget = self:get()
+    if widget:GetFullName() == nil then
+        return
+    end
 
-RegisterHook("/Script/Engine.PlayerController:ClientRestart", function()
-    print("[PalCaptureCounter] INIT......")
-    register_Gauge_Handle()
-    RegisterHook("/Game/Pal/Blueprint/System/BP_PalGameInstance.BP_PalGameInstance_C:OnCompleteSetup", function()
-        print("[PalCaptureCounter] First update CAPTURE_LIST......")
-        update_capture_list()
+    local enemyGauge = widget.WBP_EnemyGauge
+    if enemyGauge:GetFullName() == nil then
+        return
+    end
+
+    local individualHandle = targetHandle:get()
+    if individualHandle:GetFullName() == nil then
+        return
+    end
+
+    local individualParameter = individualHandle:TryGetIndividualParameter()
+    if individualParameter:GetFullName() == nil then
+        return
+    end
+
+    local individualSaveParameter = individualParameter.SaveParameter
+    if individualSaveParameter:GetFullName() == nil then
+        return
+    end
+
+    local owner_uid = individualSaveParameter.OwnerPlayerUId
+    if owner_uid.A ~= 0 or owner_uid.B ~= 0 or owner_uid.C ~= 0 or owner_uid.D ~= 0 then
+        return
+    end
+
+    local characterId = individualSaveParameter.CharacterID
+    if characterId == nil then
+        return
+    end
+
+    gauge_list_mutex = true
+    local characterIdStr = string.gsub(characterId:ToString(), "^BOSS_", "")
+
+    local address = string.format("%016X", enemyGauge:GetAddress())
+
+    ExecuteAsync(function()
+        if enemyGauge ~= nil and characterIdStr ~= nil then
+            if capture_count[characterIdStr] ~= nil then
+                if config.always_show_count or capture_count[characterIdStr] < 10 then
+                    enemyGauge.Text_WorkName:SetText_GDKInternal(1,
+                        string.format("(%s/10)\n", tostring(capture_count[characterIdStr])))
+                end
+            else
+                enemyGauge.Text_WorkName:SetText_GDKInternal(1, string.format("(0/10)\n"))
+            end
+        end
+
+        gauge_list[address] = { gauge = enemyGauge, char_id = characterIdStr }
+        gauge_list_mutex = false
     end)
-end)
+
+    -- print(string.format("[Bind] %s", enemyGauge.Text_WorkName:GetFullName()))
+end
+
+function DetourUnbind(self)
+    local widget = self:get()
+    if widget:GetFullName() == nil then
+        return
+    end
+
+    local enemyGauge = widget.WBP_EnemyGauge
+    if enemyGauge:GetFullName() == nil then
+        return
+    end
+
+    gauge_list_mutex = true
+
+    local address = string.format("%016X", enemyGauge:GetAddress())
+
+    ExecuteAsync(function()
+        gauge_list[address] = nil
+        gauge_list_mutex = false
+    end)
+
+    -- print(string.format("[Unbind] %s", address))
+end
+
+function Init()
+    LoadPalUtility()
+
+    UpdatePalCaptureCount()
+
+    RegisterHook(
+        "/Game/Pal/Blueprint/UI/WBP_PlayerUI.WBP_PlayerUI_C:OnCapturedPal",
+        DetourOnCapturedPal)
+
+    RegisterHook(
+        "/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:BindFromHandle",
+        DetourBindFromHandle)
+
+    RegisterHook(
+        "Function /Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:Unbind",
+        DetourUnbind
+    )
+end
+
+RegisterHook(
+    "/Script/Engine.PlayerController:ClientRestart",
+    function()
+        Init()
+    end)
