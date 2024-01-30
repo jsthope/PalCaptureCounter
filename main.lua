@@ -3,7 +3,7 @@ local PAL_DATA = require("pal_data")
 
 function findObjectByPalName(fileName)
     for i, obj in ipairs(PAL_DATA) do
-        if obj.FileName == fileName then
+        if string.lower(obj.FileName) == fileName then
             return obj
         end
     end
@@ -19,14 +19,14 @@ function update_capture_list()
             local items = record.PalCaptureCount.Items
             items:ForEach(function(index, elem_wrapper)
                 local palrec = elem_wrapper:get()
-                CAPTURE_LIST[palrec.Key:ToString()] = tostring(palrec.Value)
+                CAPTURE_LIST[string.lower(palrec.Key:ToString())] = tostring(palrec.Value)
             end)
         end
     end
 end
 
 function add_count_to_pal(handler,WBP_PalNPCHPGauge_C)
-    local CharacterID = string.gsub(handler:TryGetIndividualParameter().SaveParameter.CharacterID:ToString(), "^BOSS_", "")
+    local CharacterID = string.lower(string.gsub(handler:TryGetIndividualParameter().SaveParameter.CharacterID:ToString(), "^BOSS_", ""))
     local eg = WBP_PalNPCHPGauge_C.WBP_EnemyGauge
     local PalObject = findObjectByPalName(CharacterID)
     -- If PalObject is nil, return from the function
