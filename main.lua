@@ -63,8 +63,7 @@ function DetourOnCapturedPal(self, CaptureInfo)
     -- print(string.format("[OnCapturedPal] %s", CaptureInfo:get().CharacterID:ToString()))
 end
 
-function DetourBindFromHandle(self, targetHandle)
-    local widget = self:get()
+function DetourBindFromHandle(widget, individualHandle)
     if widget:GetFullName() == nil then
         return
     end
@@ -74,7 +73,6 @@ function DetourBindFromHandle(self, targetHandle)
         return
     end
 
-    local individualHandle = targetHandle:get()
     if individualHandle:GetFullName() == nil then
         return
     end
@@ -104,27 +102,24 @@ function DetourBindFromHandle(self, targetHandle)
 
     local address = string.format("%016X", enemyGauge:GetAddress())
 
-    ExecuteAsync(function()
-        if enemyGauge ~= nil and characterIdStr ~= nil then
-            if capture_count[characterIdStr] ~= nil then
-                if config.always_show_count or capture_count[characterIdStr] < 10 then
-                    enemyGauge.Text_WorkName:SetText_GDKInternal(1,
-                        string.format("(%s/10)\n", tostring(capture_count[characterIdStr])))
-                end
-            else
-                enemyGauge.Text_WorkName:SetText_GDKInternal(1, string.format("(0/10)\n"))
+    if enemyGauge ~= nil and characterIdStr ~= nil then
+        if capture_count[characterIdStr] ~= nil then
+            if config.always_show_count or capture_count[characterIdStr] < 10 then
+                enemyGauge.Text_WorkName:SetText_GDKInternal(1,
+                    string.format("(%s/10)\n", tostring(capture_count[characterIdStr])))
             end
+        else
+            enemyGauge.Text_WorkName:SetText_GDKInternal(1, string.format("(0/10)\n"))
         end
+    end
 
-        gauge_list[address] = { gauge = enemyGauge, char_id = characterIdStr }
-        gauge_list_mutex = false
-    end)
+    gauge_list[address] = { gauge = enemyGauge, char_id = characterIdStr }
+    gauge_list_mutex = false
 
     -- print(string.format("[Bind] %s", enemyGauge.Text_WorkName:GetFullName()))
 end
 
-function DetourUnbind(self)
-    local widget = self:get()
+function DetourUnbind(widget)
     if widget:GetFullName() == nil then
         return
     end
@@ -156,13 +151,24 @@ function Init()
         DetourOnCapturedPal)
 
     RegisterHook(
-        "/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:BindFromHandle",
-        DetourBindFromHandle)
+        "/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:BindFromHandle", function (self, handler)
+        local targetHandle = handler:get()
+        local widget = self:get()
+
+        ExecuteAsync(function()
+            DetourBindFromHandle(widget,targetHandle)
+        end)
+    end)
+
 
     RegisterHook(
-        "Function /Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:Unbind",
-        DetourUnbind
-    )
+        "Function /Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:Unbind", function (self)
+        local widget = self:get()
+
+        ExecuteAsync(function()
+            DetourUnbind(widget)
+        end)
+    end)
 end
 
 RegisterHook(
