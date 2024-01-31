@@ -133,10 +133,8 @@ function DetourUnbind(widget)
 
     local address = string.format("%016X", enemyGauge:GetAddress())
 
-    ExecuteAsync(function()
         gauge_list[address] = nil
         gauge_list_mutex = false
-    end)
 
     -- print(string.format("[Unbind] %s", address))
 end
