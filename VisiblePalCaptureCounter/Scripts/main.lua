@@ -6,7 +6,7 @@ local capture_count = {}
 local gauge_list = {}
 local gauge_list_mutex = false
 
-local preId1, postId1, preId2, postId2, preId3, postId3 = nil, nil, nil, nil, nil, nil
+local reglist = {}
 
 function UpdatePalCaptureCount()
     local raw_capture_count = pal_utility:GetLocalRecordData(FindFirstOf("PalPlayerCharacter")).PalCaptureCount.Items
@@ -139,7 +139,7 @@ function Init()
         UpdatePalCaptureCount()
     end)
 
-    preId1, postId1 = RegisterHook(
+    reglist[0], reglist[1] = RegisterHook(
         "/Game/Pal/Blueprint/UI/WBP_PlayerUI.WBP_PlayerUI_C:OnCapturedPal", function (self, CaptureInfo)
         ExecuteAsync(function()
             -- print(string.format("[VPCC-OnCapturedPal called]"))
@@ -148,7 +148,7 @@ function Init()
         end)
     end)
 
-    preId2, postId2 = RegisterHook(
+    reglist[2], reglist[3] = RegisterHook(
         "/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:BindFromHandle", function (self, handler)
         local targetHandle = handler:get()
         local widget = self:get()
@@ -159,7 +159,7 @@ function Init()
     end)
 
 
-    preId3, postId3 = RegisterHook(
+    reglist[4], reglist[5] = RegisterHook(
         "/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:Unbind", function (self)
         local widget = self:get()
 
@@ -170,18 +170,18 @@ function Init()
 end
 
 function UnInit()
-    UnregisterHook("/Game/Pal/Blueprint/UI/WBP_PlayerUI.WBP_PlayerUI_C:OnCapturedPal", preId1, postId1)
-    UnregisterHook("/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:BindFromHandle", preId2, postId2)
-    UnregisterHook("/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:Unbind", preId3, postId3)
+    UnregisterHook("/Game/Pal/Blueprint/UI/WBP_PlayerUI.WBP_PlayerUI_C:OnCapturedPal", reglist[0], reglist[1])
+    UnregisterHook("/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:BindFromHandle", reglist[2], reglist[3])
+    UnregisterHook("/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:Unbind", reglist[4], reglist[5])
 end
 
 RegisterHook(
     "/Script/Engine.PlayerController:ClientRestart",
     function()
-        if preId1 or postId1 or preId2 or postId2 or preId3 or postId3 then -- first time
-            -- print("[VPCC] Uninit...")
-            UnInit()
-        end
-        -- print("[VPCC] Init...")
-        Init()
-    end)
+            if #reglist ~= 0 then -- first time
+                -- print("[VPCC] Uninit...")
+                UnInit()
+            end
+            -- print("[VPCC] Init...")
+            Init()
+        end)
