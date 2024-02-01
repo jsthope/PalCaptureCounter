@@ -199,7 +199,6 @@ RegisterHook("/Script/Engine.PlayerController:ClientRestart", function(Context)
     end
     if not inited then
         inited=true
-        mySpecialContainer=nil
         ExecuteWithDelay(6000,function()
             ExecuteInGameThread(function()
                 Init()
