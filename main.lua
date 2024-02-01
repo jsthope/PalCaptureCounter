@@ -6,6 +6,8 @@ local capture_count = {}
 local gauge_list = {}
 local gauge_list_mutex = false
 
+local preId1, postId1, preId2, postId2, preId3, postId3 = nil, nil, nil, nil, nil, nil
+
 function UpdatePalCaptureCount()
     local raw_capture_count = pal_utility:GetLocalRecordData(FindFirstOf("PalPlayerCharacter")).PalCaptureCount.Items
     if not raw_capture_count:IsValid() then
@@ -18,7 +20,6 @@ function UpdatePalCaptureCount()
         capture_count[lua_elem.Key:ToString()] = lua_elem.Value
     end)
 
-    -- print("[UpdatePalCaptureCount] updated.")
 end
 
 function LoadPalUtility()
@@ -40,6 +41,7 @@ function UpdateGauges()
     for key in pairs(gauge_list) do
         local enemyGauge = gauge_list[key].gauge
         local characterIdStr = gauge_list[key].char_id
+        -- print("[VPCC-UpdateGauges] updating " .. characterIdStr .. "...")
 
         if enemyGauge ~= nil and characterIdStr ~= nil then
             if capture_count[characterIdStr] ~= nil then
@@ -52,15 +54,7 @@ function UpdateGauges()
             end
         end
     end
-end
-
-function DetourOnCapturedPal(self, CaptureInfo)
-    ExecuteAsync(function()
-        UpdatePalCaptureCount()
-        UpdateGauges()
-    end)
-
-    -- print(string.format("[OnCapturedPal] %s", CaptureInfo:get().CharacterID:ToString()))
+    -- print("[VPCC-UpdateGauges] updated.")
 end
 
 function DetourBindFromHandle(widget, individualHandle)
@@ -116,7 +110,7 @@ function DetourBindFromHandle(widget, individualHandle)
     gauge_list[address] = { gauge = enemyGauge, char_id = characterIdStr }
     gauge_list_mutex = false
 
-    -- print(string.format("[Bind] %s", enemyGauge.Text_WorkName:GetFullName()))
+    -- print(string.format("[VPCC-Bind] %s", enemyGauge.Text_WorkName:GetFullName()))
 end
 
 function DetourUnbind(widget)
@@ -133,22 +127,28 @@ function DetourUnbind(widget)
 
     local address = string.format("%016X", enemyGauge:GetAddress())
 
-        gauge_list[address] = nil
-        gauge_list_mutex = false
+    gauge_list[address] = nil
+    gauge_list_mutex = false
 
-    -- print(string.format("[Unbind] %s", address))
+    -- print(string.format("[VPCC-Unbind] %s", address))
 end
 
 function Init()
-    LoadPalUtility()
+    ExecuteAsync(function()
+        LoadPalUtility()
+        UpdatePalCaptureCount()
+    end)
 
-    UpdatePalCaptureCount()
+    preId1, postId1 = RegisterHook(
+        "/Game/Pal/Blueprint/UI/WBP_PlayerUI.WBP_PlayerUI_C:OnCapturedPal", function (self, CaptureInfo)
+        ExecuteAsync(function()
+            -- print(string.format("[VPCC-OnCapturedPal called]"))
+            UpdatePalCaptureCount()
+            UpdateGauges()
+        end)
+    end)
 
-    RegisterHook(
-        "/Game/Pal/Blueprint/UI/WBP_PlayerUI.WBP_PlayerUI_C:OnCapturedPal",
-        DetourOnCapturedPal)
-
-    RegisterHook(
+    preId2, postId2 = RegisterHook(
         "/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:BindFromHandle", function (self, handler)
         local targetHandle = handler:get()
         local widget = self:get()
@@ -159,8 +159,8 @@ function Init()
     end)
 
 
-    RegisterHook(
-        "Function /Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:Unbind", function (self)
+    preId3, postId3 = RegisterHook(
+        "/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:Unbind", function (self)
         local widget = self:get()
 
         ExecuteAsync(function()
@@ -169,8 +169,19 @@ function Init()
     end)
 end
 
+function UnInit()
+    UnregisterHook("/Game/Pal/Blueprint/UI/WBP_PlayerUI.WBP_PlayerUI_C:OnCapturedPal", preId1, postId1)
+    UnregisterHook("/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:BindFromHandle", preId2, postId2)
+    UnregisterHook("/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:Unbind", preId3, postId3)
+end
+
 RegisterHook(
     "/Script/Engine.PlayerController:ClientRestart",
     function()
+        if preId1 or postId1 or preId2 or postId2 or preId3 or postId3 then -- first time
+            -- print("[VPCC] Uninit...")
+            UnInit()
+        end
+        -- print("[VPCC] Init...")
         Init()
     end)
