@@ -7,7 +7,7 @@ local gauge_list = {}
 local gauge_list_mutex = false
 
 local hooked=false
-
+local inited=false
 
 function UpdatePalCaptureCount()
     local raw_capture_count = pal_utility:GetLocalRecordData(FindFirstOf("PalPlayerCharacter")).PalCaptureCount.Items
@@ -179,11 +179,15 @@ RegisterHook("/Script/Engine.PlayerController:ClientRestart", function(Context)
                     capture_count = {}
                     gauge_list = {}
                     gauge_list_mutex = false
+                    inited=false
                 end)
             end)
         end)
     end
-    ExecuteAsync(function()
-        UpdatePalCaptureCount()
-    end)
+    if not inited then
+        inited = true
+        ExecuteAsync(function()
+            UpdatePalCaptureCount()
+        end)
+    end
 end)
