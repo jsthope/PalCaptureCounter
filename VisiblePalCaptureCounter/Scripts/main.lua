@@ -5,7 +5,9 @@ local pal_utility = nil
 local capture_count = {}
 local gauge_list = {}
 local gauge_list_mutex = false
+
 local hooked=false
+
 
 function UpdatePalCaptureCount()
     local raw_capture_count = pal_utility:GetLocalRecordData(FindFirstOf("PalPlayerCharacter")).PalCaptureCount.Items
@@ -135,7 +137,6 @@ end
 function Init()
     ExecuteAsync(function()
         LoadPalUtility()
-        UpdatePalCaptureCount()
     end)
 
     RegisterHook(
@@ -151,6 +152,7 @@ function Init()
         "/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:BindFromHandle", function (self, handler)
         local targetHandle = handler:get()
         local widget = self:get()
+
         ExecuteAsync(function()
             DetourBindFromHandle(widget,targetHandle)
         end)
@@ -160,16 +162,28 @@ function Init()
     RegisterHook(
         "/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:Unbind", function (self)
         local widget = self:get()
+
         ExecuteAsync(function()
             DetourUnbind(widget)
         end)
     end)
 end
 
-
 RegisterHook("/Script/Engine.PlayerController:ClientRestart", function(Context)
     if not hooked then
         hooked=true
         Init()
+        ExecuteWithDelay(5000,function()
+            ExecuteInGameThread(function()
+                RegisterHook("/Game/Pal/Blueprint/UI/UserInterface/ESCMenu/WBP_MenuESC.WBP_MenuESC_C:ConfirmReturnTitle",function()
+                    capture_count = {}
+                    gauge_list = {}
+                    gauge_list_mutex = false
+                end)
+            end)
+        end)
     end
+    ExecuteAsync(function()
+        UpdatePalCaptureCount()
+    end)
 end)
