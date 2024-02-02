@@ -5,11 +5,7 @@ local pal_utility = nil
 local capture_count = {}
 local gauge_list = {}
 local gauge_list_mutex = false
-
-local reglist = {}
 local hooked=false
-local inited=false
-
 
 function UpdatePalCaptureCount()
     local raw_capture_count = pal_utility:GetLocalRecordData(FindFirstOf("PalPlayerCharacter")).PalCaptureCount.Items
@@ -142,7 +138,7 @@ function Init()
         UpdatePalCaptureCount()
     end)
 
-    reglist[0], reglist[1] = RegisterHook(
+    RegisterHook(
         "/Game/Pal/Blueprint/UI/WBP_PlayerUI.WBP_PlayerUI_C:OnCapturedPal", function (self, CaptureInfo)
         ExecuteAsync(function()
             -- print(string.format("[VPCC-OnCapturedPal called]"))
@@ -151,58 +147,29 @@ function Init()
         end)
     end)
 
-    reglist[2], reglist[3] = RegisterHook(
+    RegisterHook(
         "/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:BindFromHandle", function (self, handler)
         local targetHandle = handler:get()
         local widget = self:get()
-
         ExecuteAsync(function()
             DetourBindFromHandle(widget,targetHandle)
         end)
     end)
 
 
-    reglist[4], reglist[5] = RegisterHook(
+    RegisterHook(
         "/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:Unbind", function (self)
         local widget = self:get()
-
         ExecuteAsync(function()
             DetourUnbind(widget)
         end)
     end)
 end
 
-function UnInit() -- dont work
-    UnregisterHook("/Game/Pal/Blueprint/UI/WBP_PlayerUI.WBP_PlayerUI_C:OnCapturedPal", reglist[0], reglist[1])
-    UnregisterHook("/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:BindFromHandle", reglist[2], reglist[3])
-    UnregisterHook("/Game/Pal/Blueprint/UI/NPCHPGauge/WBP_PalNPCHPGauge.WBP_PalNPCHPGauge_C:Unbind", reglist[4], reglist[5])
-end
-
 
 RegisterHook("/Script/Engine.PlayerController:ClientRestart", function(Context)
     if not hooked then
         hooked=true
-        ExecuteWithDelay(5000,function()
-            ExecuteInGameThread(function()
-                RegisterHook("/Game/Pal/Blueprint/UI/UserInterface/ESCMenu/WBP_MenuESC.WBP_MenuESC_C:ConfirmReturnTitle",function()
-                    inited=false
-                    if #reglist ~= 0 then
-                        UnInit()
-                        reglist={}
-                        capture_count = {}
-                        gauge_list = {}
-                        gauge_list_mutex = false
-                    end
-                end)
-            end)
-        end)
-    end
-    if not inited then
-        inited=true
-        ExecuteWithDelay(6000,function()
-            ExecuteInGameThread(function()
-                Init()
-            end)
-        end)
+        Init()
     end
 end)
