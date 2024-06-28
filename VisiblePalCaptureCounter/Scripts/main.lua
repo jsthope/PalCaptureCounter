@@ -46,12 +46,12 @@ function UpdateGauges()
 
         if enemyGauge ~= nil and characterIdStr ~= nil then
             if capture_count[characterIdStr] ~= nil then
-                if config.always_show_count or capture_count[characterIdStr] < 10 then
+                if config.always_show_count or capture_count[characterIdStr] < 12 then
                     enemyGauge.Text_WorkName:SetText_GDKInternal(1,
-                        string.format("(%s/10)\n", tostring(capture_count[characterIdStr])))
+                        string.format("(%s/12)\n", tostring(capture_count[characterIdStr])))
                 end
             else
-                enemyGauge.Text_WorkName:SetText_GDKInternal(1, string.format("(0/10)\n"))
+                enemyGauge.Text_WorkName:SetText_GDKInternal(1, string.format("(0/12)\n"))
             end
         end
     end
@@ -99,12 +99,12 @@ function DetourBindFromHandle(widget, individualHandle)
 
     if enemyGauge ~= nil and characterIdStr ~= nil then
         if capture_count[characterIdStr] ~= nil then
-            if config.always_show_count or capture_count[characterIdStr] < 10 then
+            if config.always_show_count or capture_count[characterIdStr] < 12 then
                 enemyGauge.Text_WorkName:SetText_GDKInternal(1,
-                    string.format("(%s/10)\n", tostring(capture_count[characterIdStr])))
+                    string.format("(%s/12)\n", tostring(capture_count[characterIdStr])))
             end
         else
-            enemyGauge.Text_WorkName:SetText_GDKInternal(1, string.format("(0/10)\n"))
+            enemyGauge.Text_WorkName:SetText_GDKInternal(1, string.format("(0/12)\n"))
         end
     end
 
